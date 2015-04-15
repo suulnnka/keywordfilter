@@ -1,25 +1,42 @@
 local root
 
+local function init_queue()
+	local queue = {}
+	local operation = {}
+	local start = 2 -- avoid array part
+	local stop = 2
+	operation.add = function(node)
+		queue[stop] = node
+		stop = stop + 1
+	end
+	operation.del = function()
+		local node = queue[start]
+		queue[start] = nil
+		start = start + 1
+		return node
+	end
+	operation.len = function()
+		return stop - start
+	end
+	return operation
+end
+
 local function set_fail()
-	root.fail = root
-	local queue = {root}
-	while #queue > 0 do
-		local node = table.remove(queue,1)
+	local queue = init_queue()
+	queue.add(root)
+	while queue.len() > 0 do
+		local node = queue.del()
 		for index,new_node in pairs(node) do
 			if type(index) == "number" then
-				if node == root then
-					new_node.fail = root
-				else
-					local fail = node.fail
-					while fail ~= root and not fail[index] do
-						fail = fail.fail
-					end
-					new_node.fail = fail[index] or root
+				local fail = node.fail
+				while fail and fail ~= root and not fail[index] do
+					fail = fail.fail
 				end
+				new_node.fail = fail and fail[index] or root
 				if new_node.fail.leaf and not new_node.leaf then
 					new_node.leaf = new_node.fail.leaf
 				end
-				table.insert(queue,new_node)
+				queue.add(new_node)
 			end
 		end
 	end
@@ -39,9 +56,10 @@ end
 
 local function trie_find(str)
 	local keywords = {}
-	
 	local node = root
-	for index,ch in utf8.codes(str) do
+	local index = 0
+	for _,ch in utf8.codes(str) do
+		index = index + 1
 		while node ~= root and not node[ch] do
 			node = node.fail
 		end
@@ -51,14 +69,13 @@ local function trie_find(str)
 			table.insert(keywords,index)
 		end
 	end
-	
 	return keywords
 end
 
 local function filter(str)
 	local keywords = trie_find(str)
 	if #keywords > 0 then
-		local length = utf8.len(str)
+		local length = #str
 		local sentence = table.pack(utf8.codepoint(str,1,length))
 		for index = 1, #keywords, 2 do
 			local start = keywords[index]
@@ -73,12 +90,16 @@ local function filter(str)
 	end
 end
 
-local words = {}
-for l in io.lines("wordlist.txt") do
-	table.insert(words,l)
+do
+	local words = {}
+	for l in io.lines("wordlist.txt") do
+		table.insert(words,l)
+	end
+		
+	init_tree(words)
+	set_fail()
 end
-	
-init_tree(words)
-set_fail()
 
-print(filter("abcdefasd"))
+-- assert( filter("abcd") == "****" )
+
+return filter
