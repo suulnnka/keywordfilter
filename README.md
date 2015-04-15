@@ -1,2 +1,4 @@
 # keywordfilter
-forfucking dirty words
+for the fucking dirty words
+
+DFA , need lua5.3
